@@ -1,6 +1,6 @@
 from pylab import *
 
-Ctype_key={'lignin':0,'insoluble polymer':1,'soluble polymer':2,'monomer':3,'microbe':4,'CO2':5}
+Ctype_key={'lignin':5,'insoluble polymer':4,'soluble polymer':3,'monomer':2,'microbe':1,'CO2':0}
 
 pore_distribution={'macropore':0.3,'micropore':0.4,'nanopore':0.3}
 pore_key={'macropore':0,'micropore':1,'nanopore':2}
@@ -14,11 +14,11 @@ location_map[int(pore_distribution['macropore']*nlocations):int((pore_distributi
 location_map[int((pore_distribution['micropore']+pore_distribution['macropore'])*nlocations):]=pore_key['nanopore']
 
 
-nparticles=1000
+nparticles=30
 ntimes=5000
-particle_age=zeros((nparticles,ntimes),dtype=int)
-particle_form=zeros((nparticles,ntimes),dtype=int)
-particle_location=zeros((nparticles,ntimes),dtype=int)
+particle_age=ma.masked_all((nparticles,ntimes),dtype=int)
+particle_form=ma.masked_all((nparticles,ntimes),dtype=int)
+particle_location=ma.masked_all((nparticles,ntimes),dtype=int)
 
 def add_particle(pnumber,time,pore_type='macropore',C_type='insoluble polymer'):
     locs=nonzero(location_map==pore_key[pore_type])[0]
@@ -100,8 +100,12 @@ total_particles=0
 
 # Add some microbes
 nmicrobes=5
+nparticles=20
 for ii in range(nmicrobes):
     add_particle(ii,0,C_type='microbe')
+    total_particles += 1
+for ii  in range(nparticles):
+    add_particle(total_particles,0,C_type=['lignin','insoluble polymer','soluble polymer'][randint(3)])
     total_particles += 1
 
 # Iterate model
@@ -112,6 +116,6 @@ for tt in range(1,ntimes):
     for pnumber in range(total_particles):
         particle_form[pnumber,tt]=transform_particle(pnumber,tt-1)
         particle_location[pnumber,tt]=move_particle(pnumber,tt-1)
-    if tt%700==0:
-        add_particle(total_particles,tt)
-        total_particles += 1
+    # if tt%700==0:
+    #     add_particle(total_particles,tt)
+    #     total_particles += 1
