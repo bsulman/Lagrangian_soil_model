@@ -38,7 +38,7 @@ def transform_particle(pnumber,time):
     if current_type == Ctype_key['insoluble polymer']:
         prob['soluble polymer']=2e-2*microbes
         prob['monomer']=2e-2*microbes
-    if current_type == Ctype_key['insoluble polymer']:
+    if current_type == Ctype_key['soluble polymer']:
         prob['monomer']=2e-2*microbes
     if  current_type == Ctype_key['monomer']:
         prob['CO2']=1e-1*microbes
@@ -53,7 +53,7 @@ def transform_particle(pnumber,time):
 
     return current_type
 
-prob_leaving={pore_key['macropore']:0.5,pore_key['micropore']:0.1,pore_key['nanopore']:0.01}
+prob_leaving={pore_key['macropore']:0.1,pore_key['micropore']:0.05,pore_key['nanopore']:0.01}
 
 def move_particle(pnumber,time):
     current_location=particle_location[pnumber,time]
@@ -72,7 +72,7 @@ def move_particle(pnumber,time):
     if current_type == Ctype_key['soluble polymer']:
         prob['macropore']=0.1
         prob['micropore']=0.05
-        prob['nanopore']=0.1
+        prob['nanopore']=0.05
     if  current_type == Ctype_key['monomer']:
         prob['macropore']=0.1
         prob['micropore']=0.1
@@ -143,3 +143,5 @@ legend([Line2D([0],[0],ls='-'),Line2D([0],[0],ls='--'),Line2D([0],[0],ls=':')],[
 
 xlabel('Particle age')
 tight_layout()
+
+show()
