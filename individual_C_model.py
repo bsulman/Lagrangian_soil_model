@@ -119,3 +119,27 @@ for tt in range(1,ntimes):
     # if tt%700==0:
     #     add_particle(total_particles,tt)
     #     total_particles += 1
+
+
+histfig=figure('Particle histories')
+histfig.clf()
+
+for pnum in range(total_particles):
+    form=particle_form[pnum,:]
+    location=particle_location[pnum,:]
+    location_type=location_map[location]
+    age=particle_age[pnum,:]
+
+    pore_lines=['-','--',':']
+    offset=rand()*0.2
+    c='C%d'%(pnum%10)
+    for loctype in pore_key.values():
+        plot(age,ma.masked_array(form,mask=~(location_type==loctype)|(form==Ctype_key['microbe']))+offset,ls=pore_lines[loctype],c=c)
+
+yticks(list(Ctype_key.values()),list(Ctype_key.keys()))
+ylim(0.2,5.5)
+
+legend([Line2D([0],[0],ls='-'),Line2D([0],[0],ls='--'),Line2D([0],[0],ls=':')],['macropore','micropore','nanopore'])
+
+xlabel('Particle age')
+tight_layout()
