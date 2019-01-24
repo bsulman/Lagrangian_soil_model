@@ -14,7 +14,7 @@ location_map[int(pore_distribution['macropore']*nlocations):int((pore_distributi
 location_map[int((pore_distribution['micropore']+pore_distribution['macropore'])*nlocations):]=pore_key['nanopore']
 
 
-nparticles=30
+nparticles=50
 ntimes=5000
 particle_age=ma.masked_all((nparticles,ntimes),dtype=int)
 particle_form=ma.masked_all((nparticles,ntimes),dtype=int)
@@ -100,11 +100,10 @@ total_particles=0
 
 # Add some microbes
 nmicrobes=5
-nparticles=20
 for ii in range(nmicrobes):
     add_particle(ii,0,C_type='microbe')
     total_particles += 1
-for ii  in range(nparticles):
+for ii  in range(nparticles-nmicrobes):
     add_particle(total_particles,0,C_type=['lignin','insoluble polymer','soluble polymer'][randint(3)])
     total_particles += 1
 
@@ -124,6 +123,7 @@ for tt in range(1,ntimes):
 histfig=figure('Particle histories')
 histfig.clf()
 
+subplot(311)
 for pnum in range(total_particles):
     form=particle_form[pnum,:]
     location=particle_location[pnum,:]
@@ -142,6 +142,38 @@ ylim(0.2,5.5)
 legend([Line2D([0],[0],ls='-'),Line2D([0],[0],ls='--'),Line2D([0],[0],ls=':')],['macropore','micropore','nanopore'])
 
 xlabel('Particle age')
-tight_layout()
 
+
+subplot(312)
+bottom=zeros(len(form))
+colors={'lignin':'C0','insoluble polymer':'C1','soluble polymer':'C2','monomer':'C3','microbe':'C4','CO2':'C5'}
+for Ctype in ['lignin','insoluble polymer','soluble polymer','monomer','microbe','CO2']:
+    top=bottom+(particle_form==Ctype_key[Ctype]).sum(axis=0)/particle_form.count(axis=0)
+    fill_between(age,bottom,top,label=Ctype)
+    bottom=top
+
+legend()
+xlabel('Time')
+ylabel('Relative amount')
+
+
+
+subplot(313)
+bottom=zeros(len(location))
+location_type=ma.masked_array(location_map[particle_location],mask=particle_location.mask)
+old_bottom=bottom[-1]
+for poresize in ['macropore','micropore','nanopore']:
+    for Ctype in ['lignin','insoluble polymer','soluble polymer','monomer','microbe']:
+        top=bottom+((particle_form==Ctype_key[Ctype])&(location_type==pore_key[poresize])).sum(axis=0)/particle_form.count(axis=0)
+        fill_between(age,bottom,top,label=Ctype,color=colors[Ctype])
+        bottom=top
+    plot(age,top,'k-',lw=2.0)
+    text(age[-1],old_bottom,poresize[:-4],rotation=60,va='bottom')
+    old_bottom=bottom[-1]
+
+
+xlabel('Time')
+ylabel('Relative amount')
+
+tight_layout()
 show()
