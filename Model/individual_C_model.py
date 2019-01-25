@@ -49,8 +49,9 @@ def transform_particle(pnumber,time):
 
     if nprobs>=1:
         for key in prob.keys():
-            if rand()<prob[key]:
-                print('Transformation!',Ctype_key_inv[current_type],key,prob[key])
+            x=rand()
+            if x<prob[key]:
+                print('Transformation! {old:s} --> {new:s}, prob={prob:1.2f}, pore={pore:d}'.format(old=Ctype_key_inv[current_type],new=key,prob=prob[key],pore=current_location))
                 return Ctype_key[key]
 
     return current_type
@@ -113,10 +114,15 @@ for ii  in range(nparticles-nmicrobes):
 for tt in range(1,ntimes):
     if tt%100==0:
         print(tt)
-    particle_age[:total_particles,tt]=particle_age[:total_particles,tt-1]+1
     for pnumber in range(total_particles):
+        if particle_form[pnumber,tt-1] == Ctype_key['CO2']:
+            particle_form[pnumber,tt]=particle_form[pnumber,tt-1]
+            particle_location[pnumber,tt]=particle_location[pnumber,tt-1]
+            particle_age[pnumber,tt]=particle_age[pnumber,tt-1]+1
+            continue
         particle_form[pnumber,tt]=transform_particle(pnumber,tt-1)
         particle_location[pnumber,tt]=move_particle(pnumber,tt-1)
+        particle_age[pnumber,tt]=particle_age[pnumber,tt-1]+1
 
 
 
