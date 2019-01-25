@@ -1,13 +1,15 @@
 from pylab import *
 
 Ctype_key={'lignin':5,'insoluble polymer':4,'soluble polymer':3,'monomer':2,'microbe':1,'CO2':0}
+Ctype_key_inv=Ctype_key.__class__(map(reversed,Ctype_key.items()))
+colors={'lignin':'C0','insoluble polymer':'C1','soluble polymer':'C2','monomer':'C3','microbe':'C4','CO2':'C5'}
 
 pore_distribution={'macropore':0.3,'micropore':0.4,'nanopore':0.3}
 pore_key={'macropore':0,'micropore':1,'nanopore':2}
 
 nlocations=100
 
-location_map=zeros(nlocations)
+location_map=zeros(nlocations,dtype=int)
 
 location_map[0:int(pore_distribution['macropore']*nlocations)]=pore_key['macropore']
 location_map[int(pore_distribution['macropore']*nlocations):int((pore_distribution['micropore']+pore_distribution['macropore'])*nlocations)]=pore_key['micropore']
@@ -48,7 +50,7 @@ def transform_particle(pnumber,time):
     if nprobs>=1:
         for key in prob.keys():
             if rand()<prob[key]:
-                print('Transformation!',current_type,Ctype_key[key])
+                print('Transformation!',Ctype_key_inv[current_type],key,prob[key])
                 return Ctype_key[key]
 
     return current_type
@@ -68,7 +70,7 @@ def move_particle(pnumber,time):
     if current_type == Ctype_key['insoluble polymer']:
         prob['macropore']=0.1
         prob['micropore']=0.05
-        prob['nanopore']=0.0
+        prob['nanopore']=0.01
     if current_type == Ctype_key['soluble polymer']:
         prob['macropore']=0.1
         prob['micropore']=0.05
@@ -79,8 +81,8 @@ def move_particle(pnumber,time):
         prob['nanopore']=0.1
     if  current_type == Ctype_key['microbe']:
         prob['macropore']=0.1
-        prob['micropore']=0.05
-        prob['nanopore']=0.0
+        prob['micropore']=0.01
+        prob['nanopore']=0.001
 
 
     for key in prob.keys():
@@ -115,15 +117,17 @@ for tt in range(1,ntimes):
     for pnumber in range(total_particles):
         particle_form[pnumber,tt]=transform_particle(pnumber,tt-1)
         particle_location[pnumber,tt]=move_particle(pnumber,tt-1)
-    # if tt%700==0:
-    #     add_particle(total_particles,tt)
-    #     total_particles += 1
 
 
-histfig=figure('Particle histories')
+
+###########################################
+###########   Plots  ######################
+###########################################
+
+histfig=figure('Particle histories',figsize=(13,6))
 histfig.clf()
 
-subplot(311)
+subplot(121)
 for pnum in range(total_particles):
     form=particle_form[pnum,:]
     location=particle_location[pnum,:]
@@ -142,23 +146,68 @@ ylim(0.2,5.5)
 legend([Line2D([0],[0],ls='-'),Line2D([0],[0],ls='--'),Line2D([0],[0],ls=':')],['macropore','micropore','nanopore'])
 
 xlabel('Particle age')
+title('History of particle C type')
+
+subplot(122)
+for pnum in range(total_particles):
+    form=particle_form[pnum,:]
+    location=particle_location[pnum,:]
+    location_type=location_map[location]
+    age=particle_age[pnum,:]
+
+    offset=rand()*0.2
+    for Ctype in Ctype_key:
+        if Ctype=='CO2':
+            continue
+        elif Ctype=='microbe':
+            plot(age,ma.masked_array(location,mask=~(form==Ctype_key[Ctype]))+offset,marker='s',ls='',ms=0.5,c=colors[Ctype],alpha=0.5,zorder=0)
+        else:
+            plot(age,ma.masked_array(location,mask=~(form==Ctype_key[Ctype]))+offset,marker='.',ls='',ms=0.5,c=colors[Ctype])
 
 
-subplot(312)
+    transformations=nonzero(diff(form))[0]
+    for trans in transformations:
+        if form[trans+1]==Ctype_key['CO2']:
+            scatter(age[trans],location[trans],marker='x',s=30.0,facecolor=colors[Ctype_key_inv[form[trans]]],zorder=100)
+        else:
+            scatter(age[trans],location[trans],marker='o',s=20.0,edgecolor=colors[Ctype_key_inv[form[trans]]],facecolor='None',zorder=100)
+
+
+boundaries=nonzero(diff(location_map)!=0)[0]
+poresizes=['Macropore','Micropore','Nanopore']
+text(age[-1],0+2.5,poresizes[location_map[0]],rotation=90,va='bottom')
+for num in boundaries:
+    plot(age,zeros(len(age))+num+0.5,'k--',lw=2)
+    text(age[-1],num+2.5,poresizes[location_map[num+1]],rotation=90,va='bottom')
+for num in range(len(location_map)):
+    plot(age,zeros(len(age))+num+0.5,'k--',lw=0.2)
+
+Ctypes=['lignin','insoluble polymer','soluble polymer','monomer','microbe']
+legend([Line2D([0],[0],ls='',marker='.',c=colors[Ctype]) for Ctype in Ctypes],Ctypes,loc=(0.0,1.06),ncol=3)
+
+xlabel('Time')
+ylabel('Pore location')
+title('History of particle location')
+
+tight_layout()
+
+
+histogramfig=figure('Histograms',figsize=(8.5,8))
+histogramfig.clf()
+subplot(211)
 bottom=zeros(len(form))
-colors={'lignin':'C0','insoluble polymer':'C1','soluble polymer':'C2','monomer':'C3','microbe':'C4','CO2':'C5'}
-for Ctype in ['lignin','insoluble polymer','soluble polymer','monomer','microbe','CO2']:
+for Ctype in ['microbe','lignin','insoluble polymer','soluble polymer','monomer','CO2']:
     top=bottom+(particle_form==Ctype_key[Ctype]).sum(axis=0)/particle_form.count(axis=0)
-    fill_between(age,bottom,top,label=Ctype)
+    fill_between(age,bottom,top,label=Ctype,color=colors[Ctype])
     bottom=top
 
-legend()
+legend(ncol=2)
 xlabel('Time')
 ylabel('Relative amount')
+title('Relative total amount of each C type over time')
 
 
-
-subplot(313)
+subplot(212)
 bottom=zeros(len(location))
 location_type=ma.masked_array(location_map[particle_location],mask=particle_location.mask)
 old_bottom=bottom[-1]
@@ -174,6 +223,9 @@ for poresize in ['macropore','micropore','nanopore']:
 
 xlabel('Time')
 ylabel('Relative amount')
+title('Relative amount of each particle type in each pore size')
 
 tight_layout()
+
+
 show()
