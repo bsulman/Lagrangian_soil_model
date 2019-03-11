@@ -38,8 +38,8 @@ def transform_particle(pnumber,time):
     if current_type == Ctype_key['lignin']:
         prob['soluble polymer']=1e-2*microbes
     if current_type == Ctype_key['insoluble polymer']:
-        prob['soluble polymer']=2e-2*microbes
-        prob['monomer']=2e-2*microbes
+        prob['soluble polymer']=1e-2*microbes
+        prob['monomer']=1e-2*microbes
     if current_type == Ctype_key['soluble polymer']:
         prob['monomer']=2e-2*microbes
     if  current_type == Ctype_key['monomer']:
@@ -99,6 +99,9 @@ def move_particle(pnumber,time):
 
 
 # Initial conditions
+# Seed the pseudo-random number generator, for reproducible simulations
+np.random.seed(1)
+
 total_particles=0
 
 # Add some microbes
