@@ -9,6 +9,7 @@ class lagrangian_soil_sim:
         self.plotcolors={'lignin':'C0','insoluble polymer':'C1','soluble polymer':'C2','monomer':'C3','microbe':'C4','CO2':'C5','enzyme':'C6'}
         
         self.pore_key={'macropore':0,'micropore':1,'nanopore':2}
+        self.pore_key_inv=self.pore_key.__class__(map(reversed,self.pore_key.items()))
         self.pore_distribution=pore_distribution  #array([0.3,0.4,0.3])
 
         self.location_map=zeros(nlocations,dtype=int)
@@ -29,7 +30,7 @@ class lagrangian_soil_sim:
         self.transform_matrix[self.Ctype_key['soluble polymer'],self.Ctype_key['monomer']]=2e-2
         self.transform_matrix[self.Ctype_key['monomer'],self.Ctype_key['CO2']]=1e-1
         
-        self.prob_leaving=array([0.1,0.05,0.005])
+        self.prob_leaving=array([0.05,0.005,0.0005])
         
         self.move_probs = {
             'lignin':array([0.01,0.01,0.001]),
@@ -45,12 +46,18 @@ class lagrangian_soil_sim:
         self.move_probs_matrix[self.Ctype_key['insoluble polymer'],:]=array([0.01,0.01,0.001])
         self.move_probs_matrix[self.Ctype_key['soluble polymer'],:]=array([0.1,0.05,0.05])
         self.move_probs_matrix[self.Ctype_key['monomer'],:]=array([0.1,0.1,0.1])
-        self.move_probs_matrix[self.Ctype_key['microbe'],:]=array([0.1,0.01,0.0])
+        self.move_probs_matrix[self.Ctype_key['microbe'],:]=array([0.1,0.001,0.0])
         self.move_probs_matrix[self.Ctype_key['enzyme'],:]=array([0.1,0.05,0.05])
         
         return 
 
     def add_particle(self,pnumber,time,pore_type='macropore',C_type='insoluble polymer'):
+        if pore_type=='random':
+            xx=self.move_probs_matrix[self.Ctype_key[C_type],:]*self.pore_distribution
+            dist=(xx/xx.sum()).cumsum() 
+            x=rand()
+            pore_type=self.pore_key_inv[nonzero(x<dist)[0][0]]
+
         locs=nonzero(self.location_map==self.pore_key[pore_type])[0]
         self.particle_location[pnumber,time]=locs[randint(len(locs))]
         self.particle_age[pnumber,time]=0
@@ -86,7 +93,7 @@ class lagrangian_soil_sim:
 
     def move_particles(self,time):
         # Calculate movement probabilities for all particles
-        moveprobs=self.move_probs_matrix[self.particle_form[:,time]]*self.prob_leaving[self.location_map[self.particle_location[:,time]],None]*self.pore_distribution[self.location_map[self.particle_location[:,time]],None]
+        moveprobs=self.move_probs_matrix[self.particle_form[:,time]]*self.pore_distribution*self.prob_leaving[self.location_map[self.particle_location[:,time]],None]
         diceroll = moveprobs - random_sample(moveprobs.shape)
         moved = diceroll.max(axis=1)>0
         moved_to_type = diceroll.argmax(axis=1)
@@ -126,12 +133,12 @@ class lagrangian_soil_sim:
         title('History of particle C type')
 
 
-    def plot_particle_loc_history(self):
+    def plot_particle_loc_history(self,do_legend=False):
         for pnum in range(len(self.particle_form)):
             form=self.particle_form[pnum,:]
             location=self.particle_location[pnum,:]
             location_type=self.location_map[location]
-            age=self.particle_age[pnum,:]
+            age=arange(self.particle_age.shape[1])
 
             offset=rand()*0.2
             for Ctype in self.Ctype_key:
@@ -153,15 +160,16 @@ class lagrangian_soil_sim:
         
         boundaries=nonzero(diff(self.location_map)!=0)[0]
         poresizes=['Macropore','Micropore','Nanopore']
-        text(age[-1],0+2.5,poresizes[self.location_map[0]],rotation=90,va='bottom')
+        text(age[-1],0+2.5,poresizes[self.location_map[0]],rotation=80,va='bottom')
         for num in boundaries:
             plot(age,zeros(len(age))+num+0.5,'k--',lw=2)
-            text(age[-1],num+2.5,poresizes[self.location_map[num+1]],rotation=90,va='bottom')
+            text(age[-1],num+2.5,poresizes[self.location_map[num+1]],rotation=80,va='bottom',fontsize='small')
         for num in range(len(self.location_map)):
             plot(age,zeros(len(age))+num+0.5,'k--',lw=0.2)
 
         Ctypes=['lignin','insoluble polymer','soluble polymer','monomer','microbe']
-        legend([Line2D([0],[0],ls='',marker='.',c=self.plotcolors[Ctype]) for Ctype in Ctypes],Ctypes,loc=(0.0,1.06),ncol=3)
+        if do_legend:
+            legend([Line2D([0],[0],ls='',marker='.',c=self.plotcolors[Ctype]) for Ctype in Ctypes],Ctypes,loc=(0.0,1.06),ncol=3)
 
         xlabel('Time')
         ylabel('Pore location')
@@ -169,14 +177,14 @@ class lagrangian_soil_sim:
         
         
         
-    def plot_histogram(self,separate_pores=False):
+    def plot_histogram(self,separate_pores=False,do_legend=False):
         age=arange(self.particle_age.shape[1])
         if separate_pores:
             bottom=zeros(self.particle_location.shape[1])
             location_type=ma.masked_array(self.location_map[self.particle_location],mask=self.particle_location.mask)
             old_bottom=bottom[-1]
-            for poresize in ['macropore','micropore','nanopore']:
-                for Ctype in ['lignin','insoluble polymer','soluble polymer','monomer','microbe']:
+            for poresize in reversed(['macropore','micropore','nanopore']):
+                for Ctype in ['lignin','insoluble polymer','soluble polymer','monomer','microbe','CO2']:
                     top=bottom+((self.particle_form==self.Ctype_key[Ctype])&(location_type==self.pore_key[poresize])).sum(axis=0)/self.particle_form.count(axis=0)
                     fill_between(age,bottom,top,label=Ctype,color=self.plotcolors[Ctype])
                     bottom=top
@@ -185,7 +193,7 @@ class lagrangian_soil_sim:
                 old_bottom=bottom[-1]
 
 
-            xlabel('Time')
+            xlabel('Time steps')
             ylabel('Relative amount')
             title('Relative amount of each particle type in each pore size')
 
@@ -198,8 +206,9 @@ class lagrangian_soil_sim:
                 fill_between(age,bottom,top,label=Ctype,color=self.plotcolors[Ctype])
                 bottom=top
 
-            legend(ncol=2)
-            xlabel('Time')
+            if do_legend:
+                legend(ncol=2,fontsize='small')
+            xlabel('Time steps')
             ylabel('Relative amount')
             title('Relative total amount of each C type over time')
 
@@ -219,20 +228,31 @@ total_particles=0
 # Initialize a simulation
 nparticles=100
 nlocations=200
-ntimes=5000
-sim = lagrangian_soil_sim(nparticles=nparticles,nlocations=nlocations)
-sim_mobile = lagrangian_soil_sim(nparticles=nparticles,nlocations=nlocations)
-sim_mobile.move_probs_matrix = sim_mobile.move_probs_matrix*2
+ntimes=10000
+sim = lagrangian_soil_sim(nparticles=nparticles,nlocations=nlocations,ntimes=ntimes)
+sim_immobile = lagrangian_soil_sim(nparticles=nparticles,nlocations=nlocations,ntimes=ntimes)
+# sim_immobile.move_probs_matrix = sim_immobile.move_probs_matrix*2
+sim_immobile.prob_leaving = sim_immobile.prob_leaving*0.1
+
+sim_macro = lagrangian_soil_sim(nparticles=nparticles,nlocations=nlocations,ntimes=ntimes,pore_distribution=array([0.8,0.1,0.1]))
+sim_macro_immobile = lagrangian_soil_sim(nparticles=nparticles,nlocations=nlocations,ntimes=ntimes,pore_distribution=array([0.8,0.1,0.1]))
+# sim_immobile.move_probs_matrix = sim_immobile.move_probs_matrix*2
+sim_macro_immobile.prob_leaving = sim_macro_immobile.prob_leaving*0.1
 
 # Add some microbes
-nmicrobes=5
+nmicrobes=10
 for ii in range(nmicrobes):
     sim.add_particle(ii,0,C_type='microbe')
-    sim_mobile.add_particle(ii,0,C_type='microbe')
+    sim_immobile.add_particle(ii,0,C_type='microbe')
+    sim_macro.add_particle(ii,0,C_type='microbe')
+    sim_macro_immobile.add_particle(ii,0,C_type='microbe')
     total_particles += 1
 for ii  in range(nparticles-nmicrobes):
-    sim.add_particle(total_particles,0,C_type=['lignin','insoluble polymer','soluble polymer'][randint(3)])
-    sim_mobile.add_particle(total_particles,0,C_type=['lignin','insoluble polymer','soluble polymer'][randint(3)])
+    C_type=['lignin','insoluble polymer','soluble polymer'][randint(3)]
+    sim.add_particle(total_particles,0,C_type=C_type,pore_type='random')
+    sim_immobile.add_particle(total_particles,0,C_type=C_type,pore_type='random')
+    sim_macro.add_particle(total_particles,0,C_type=C_type,pore_type='random')
+    sim_macro_immobile.add_particle(total_particles,0,C_type=C_type,pore_type='random')
     total_particles += 1
 
 # Iterate model
@@ -249,7 +269,21 @@ for tt in range(1,ntimes):
     if tt%100==0:
         print(tt)
         
-    sim_mobile.step(tt-1,tt)
+    sim_immobile.step(tt-1,tt)
+    
+np.random.seed(1)
+for tt in range(1,ntimes):
+    if tt%100==0:
+        print(tt)
+        
+    sim_macro.step(tt-1,tt)
+
+np.random.seed(1)
+for tt in range(1,ntimes):
+    if tt%100==0:
+        print(tt)
+        
+    sim_macro_immobile.step(tt-1,tt)
 
 
 
@@ -257,48 +291,79 @@ for tt in range(1,ntimes):
 ###########   Plots  ######################
 ###########################################
 
-histfig=figure('Particle histories',figsize=(13,6))
-histfig.clf()
+historyfig=figure('Particle histories',figsize=(10,6))
+historyfig.clf()
 
-subplot(121)
-sim.plot_particle_cascade()
-
-subplot(122)
+subplot(221)
 sim.plot_particle_loc_history()
+title('Less mobile, even pore dist')
+subplot(222)
+sim_immobile.plot_particle_loc_history()
+title('More mobile, even pore dist')
+subplot(223)
+sim_macro.plot_particle_loc_history()
+title('Less mobile, high macropores')
+subplot(224)
+sim_macro_immobile.plot_particle_loc_history()
+title('More mobile, high macropores')
 
 tight_layout()
 
 
-histogramfig=figure('Histograms',figsize=(8.5,8))
-histogramfig.clf()
-subplot(211)
-sim.plot_histogram(separate_pores=False)
+cascadefig=figure('Particle tranformation cascades',figsize=(10,6))
+cascadefig.clf()
+subplot(221)
+sim.plot_particle_cascade()
+title('Less mobile, even pore dist')
+subplot(222)
+sim_immobile.plot_particle_cascade()
+title('More mobile, even pore dist')
+subplot(223)
+sim_macro.plot_particle_cascade()
+title('Less mobile, high macropores')
+subplot(224)
+sim_macro_immobile.plot_particle_cascade()
+title('More mobile, high macropores')
 
-subplot(212)
+tight_layout()
+
+
+histogramfig=figure('Histograms',figsize=(16,8))
+histogramfig.clf()
+
+
+subplot(221)
+# sim_immobile.plot_histogram(separate_pores=False)
+# subplot(245)
+sim_immobile.plot_histogram(separate_pores=True)
+# title('Divided by pore class')
+title('Less mobile, even pore dist')
+
+
+subplot(222)
+# sim.plot_histogram(separate_pores=False)
+# subplot(246)
 sim.plot_histogram(separate_pores=True)
+# title('Divided by pore class')
+title('More mobile, even pore dist')
+
+
+subplot(223)
+# sim_macro_immobile.plot_histogram(separate_pores=False)
+# subplot(247)
+sim_macro_immobile.plot_histogram(separate_pores=True)
+# title('Divided by pore class')
+title('Less mobile, high macropores')
+legend(fontsize='small',loc='lower left')
+
+subplot(224)
+# sim_macro.plot_histogram(separate_pores=False)
+# subplot(248)
+sim_macro.plot_histogram(separate_pores=True)
+title('More mobile, high macropores')
+# title('Divided by pore class')
 tight_layout()
 
-
-histfig=figure('Particle histories (mobile)',figsize=(13,6))
-histfig.clf()
-
-subplot(121)
-sim_mobile.plot_particle_cascade()
-
-subplot(122)
-sim_mobile.plot_particle_loc_history()
-
-tight_layout()
-
-
-histogramfig=figure('Histograms (mobile)',figsize=(8.5,8))
-histogramfig.clf()
-subplot(211)
-sim_mobile.plot_histogram(separate_pores=False)
-
-subplot(212)
-sim_mobile.plot_histogram(separate_pores=True)
-tight_layout()
 
 
 show()
