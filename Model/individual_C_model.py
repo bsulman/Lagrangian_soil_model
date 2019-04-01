@@ -332,7 +332,7 @@ histogramfig=figure('Histograms',figsize=(16,8))
 histogramfig.clf()
 
 
-subplot(221)
+subplot(222)
 # sim_immobile.plot_histogram(separate_pores=False)
 # subplot(245)
 sim_immobile.plot_histogram(separate_pores=True)
@@ -340,7 +340,7 @@ sim_immobile.plot_histogram(separate_pores=True)
 title('Less mobile, even pore dist')
 
 
-subplot(222)
+subplot(221)
 # sim.plot_histogram(separate_pores=False)
 # subplot(246)
 sim.plot_histogram(separate_pores=True)
@@ -348,20 +348,23 @@ sim.plot_histogram(separate_pores=True)
 title('More mobile, even pore dist')
 
 
-subplot(223)
+subplot(224)
 # sim_macro_immobile.plot_histogram(separate_pores=False)
 # subplot(247)
 sim_macro_immobile.plot_histogram(separate_pores=True)
 # title('Divided by pore class')
 title('Less mobile, high macropores')
-legend(fontsize='small',loc='lower left')
 
-subplot(224)
+
+subplot(223)
 # sim_macro.plot_histogram(separate_pores=False)
 # subplot(248)
 sim_macro.plot_histogram(separate_pores=True)
 title('More mobile, high macropores')
 # title('Divided by pore class')
+legend(handles=gca().collections[:6],fontsize='small',loc='upper right')
+
+
 tight_layout()
 
 
