@@ -133,12 +133,12 @@ class lagrangian_soil_sim:
         title('History of particle C type')
 
 
-    def plot_particle_loc_history(self,do_legend=False):
+    def plot_particle_loc_history(self,do_legend=False,dt=1):
         for pnum in range(len(self.particle_form)):
             form=self.particle_form[pnum,:]
             location=self.particle_location[pnum,:]
             location_type=self.location_map[location]
-            age=arange(self.particle_age.shape[1])
+            age=arange(self.particle_age.shape[1])*dt
 
             offset=rand()*0.2
             for Ctype in self.Ctype_key:
@@ -160,10 +160,10 @@ class lagrangian_soil_sim:
         
         boundaries=nonzero(diff(self.location_map)!=0)[0]
         poresizes=['Macropore','Micropore','Nanopore']
-        text(age[-1],0+2.5,poresizes[self.location_map[0]],rotation=80,va='bottom')
+        text(age[-1],0+2.5,poresizes[self.location_map[0]],rotation=60,va='bottom',fontsize='small')
         for num in boundaries:
             plot(age,zeros(len(age))+num+0.5,'k--',lw=2)
-            text(age[-1],num+2.5,poresizes[self.location_map[num+1]],rotation=80,va='bottom',fontsize='small')
+            text(age[-1],num+2.5,poresizes[self.location_map[num+1]],rotation=60,va='bottom',fontsize='small')
         for num in range(len(self.location_map)):
             plot(age,zeros(len(age))+num+0.5,'k--',lw=0.2)
 
@@ -177,14 +177,14 @@ class lagrangian_soil_sim:
         
         
         
-    def plot_histogram(self,separate_pores=False,do_legend=False):
-        age=arange(self.particle_age.shape[1])
+    def plot_histogram(self,separate_pores=False,do_legend=False,dt=1.0):
+        age=arange(self.particle_age.shape[1])*dt
         if separate_pores:
             bottom=zeros(self.particle_location.shape[1])
             location_type=ma.masked_array(self.location_map[self.particle_location],mask=self.particle_location.mask)
             old_bottom=bottom[-1]
-            for poresize in reversed(['macropore','micropore','nanopore']):
-                for Ctype in ['lignin','insoluble polymer','soluble polymer','monomer','microbe','CO2']:
+            for poresize in (['macropore','micropore','nanopore']):
+                for Ctype in reversed(['lignin','insoluble polymer','soluble polymer','monomer','microbe','CO2']):
                     top=bottom+((self.particle_form==self.Ctype_key[Ctype])&(location_type==self.pore_key[poresize])).sum(axis=0)/self.particle_form.count(axis=0)
                     fill_between(age,bottom,top,label=Ctype,color=self.plotcolors[Ctype])
                     bottom=top
@@ -291,21 +291,31 @@ for tt in range(1,ntimes):
 ###########   Plots  ######################
 ###########################################
 
+# Set time steps so total simulation length (10000) is 5 years
+sim.particle_age = sim.particle_age/2000
+sim_immobile.particle_age = sim_immobile.particle_age/2000
+sim_macro.particle_age = sim_macro.particle_age/2000
+sim_macro_immobile.particle_age = sim_macro_immobile.particle_age/2000
+
 historyfig=figure('Particle histories',figsize=(10,6))
 historyfig.clf()
 
 subplot(221)
-sim.plot_particle_loc_history()
-title('Less mobile, even pore dist')
+sim.plot_particle_loc_history(dt=1.0/2000)
+title('Low mobilility, even pore distribution')
+xlabel('Time (years)')
 subplot(222)
-sim_immobile.plot_particle_loc_history()
-title('More mobile, even pore dist')
+sim_immobile.plot_particle_loc_history(dt=1.0/2000)
+title('High mobility, even pore distribution')
+xlabel('Time (years)')
 subplot(223)
-sim_macro.plot_particle_loc_history()
-title('Less mobile, high macropores')
+sim_macro.plot_particle_loc_history(dt=1.0/2000)
+title('Low mobility, macropore-dominated')
+xlabel('Time (years)')
 subplot(224)
-sim_macro_immobile.plot_particle_loc_history()
-title('More mobile, high macropores')
+sim_macro_immobile.plot_particle_loc_history(dt=1.0/2000)
+title('High mobile, macropore-dominated')
+xlabel('Time (years)')
 
 tight_layout()
 
@@ -314,16 +324,20 @@ cascadefig=figure('Particle tranformation cascades',figsize=(10,6))
 cascadefig.clf()
 subplot(221)
 sim.plot_particle_cascade()
-title('Less mobile, even pore dist')
+title('Low mobilility, even pore distribution')
+xlabel('Time (years)')
 subplot(222)
 sim_immobile.plot_particle_cascade()
-title('More mobile, even pore dist')
+title('High mobility, even pore distribution')
+xlabel('Time (years)')
 subplot(223)
 sim_macro.plot_particle_cascade()
-title('Less mobile, high macropores')
+title('Low mobilility, macropore-dominated')
+xlabel('Time (years)')
 subplot(224)
 sim_macro_immobile.plot_particle_cascade()
-title('More mobile, high macropores')
+title('High mobility, macropore-dominated')
+xlabel('Time (years)')
 
 tight_layout()
 
@@ -335,38 +349,47 @@ histogramfig.clf()
 subplot(222)
 # sim_immobile.plot_histogram(separate_pores=False)
 # subplot(245)
-sim_immobile.plot_histogram(separate_pores=True)
+sim_immobile.plot_histogram(separate_pores=True,dt=1.0/2000)
 # title('Divided by pore class')
-title('Less mobile, even pore dist')
+title('Low mobilility, even pore distribution')
+xlabel('Time (years)')
 
 
 subplot(221)
 # sim.plot_histogram(separate_pores=False)
 # subplot(246)
-sim.plot_histogram(separate_pores=True)
+sim.plot_histogram(separate_pores=True,dt=1.0/2000)
 # title('Divided by pore class')
-title('More mobile, even pore dist')
+title('High mobility, even pore distribution')
+xlabel('Time (years)')
 
 
 subplot(224)
 # sim_macro_immobile.plot_histogram(separate_pores=False)
 # subplot(247)
-sim_macro_immobile.plot_histogram(separate_pores=True)
+sim_macro_immobile.plot_histogram(separate_pores=True,dt=1.0/2000)
 # title('Divided by pore class')
-title('Less mobile, high macropores')
+title('Low mobilility, macropore-dominated')
+xlabel('Time (years)')
 
 
 subplot(223)
 # sim_macro.plot_histogram(separate_pores=False)
 # subplot(248)
-sim_macro.plot_histogram(separate_pores=True)
-title('More mobile, high macropores')
+sim_macro.plot_histogram(separate_pores=True,dt=1.0/2000)
+title('High mobility, macropore-dominated')
+xlabel('Time (years)')
 # title('Divided by pore class')
-legend(handles=gca().collections[:6],fontsize='small',loc='upper right')
-
+leg=legend(handles=gca().collections[:6],fontsize='small',loc='upper right')
+leg.set_draggable(True)
 
 tight_layout()
 
-
+figure('Particle history example');clf()
+sim.plot_particle_loc_history(dt=1.0/2000,do_legend=True)
+title('History of particle locations')
+# legend(ncol=3)
+tight_layout()
+xlabel('Time (years)')
 
 show()
