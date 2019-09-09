@@ -6,7 +6,9 @@ class lagrangian_soil_sim:
     def __init__(self,pore_distribution=array([0.3,0.4,0.3]),nlocations=200,nparticles=100,ntimes=5000):
         self.Ctype_key={'enzyme':6,'lignin':5,'insoluble polymer':4,'soluble polymer':3,'monomer':2,'microbe':1,'CO2':0}
         self.Ctype_key_inv=self.Ctype_key.__class__(map(reversed,self.Ctype_key.items()))
-        self.plotcolors={'lignin':'C0','insoluble polymer':'C1','soluble polymer':'C2','monomer':'C3','microbe':'C4','CO2':'C5','enzyme':'C6'}
+        # self.plotcolors={'lignin':'C0','insoluble polymer':'C1','soluble polymer':'C2','monomer':'C3','microbe':'C4','CO2':'C5','enzyme':'C6'}
+        self.plotcolors={'lignin':[0,0,0],'insoluble polymer':[0.2,0.2,0.2],'soluble polymer':[0.4,0.4,0.4],'monomer':[0.7,0.7,0.7],'microbe':[1.0,1.0,1.0],'CO2':[0.8,0.8,0.8],'enzyme':'C6'}
+        self.hatching={'microbe':'|','CO2':'//'}
         
         self.pore_key={'macropore':0,'micropore':1,'nanopore':2}
         self.pore_key_inv=self.pore_key.__class__(map(reversed,self.pore_key.items()))
@@ -133,47 +135,71 @@ class lagrangian_soil_sim:
         title('History of particle C type')
 
 
-    def plot_particle_loc_history(self,do_legend=False,dt=1):
-        for pnum in range(len(self.particle_form)):
+    def plot_particle_loc_history(self,do_legend=False,dt=1,particles=None):
+        if particles is None:
+            particles=arange(len(self.particle_form))
+        for pnum in particles:
             form=self.particle_form[pnum,:]
             location=self.particle_location[pnum,:]
             location_type=self.location_map[location]
             age=arange(self.particle_age.shape[1])*dt
 
+            movements=nonzero(diff(location))[0]
+            transformations=nonzero(diff(form))[0]
+            bounds=sort(concatenate(([0],movements,transformations,[len(form)-1])))
             offset=rand()*0.2
-            for Ctype in self.Ctype_key:
+            for num in range(len(bounds)-1):
+                Ctype=self.Ctype_key_inv[form[bounds[num+1]]]
                 if Ctype=='CO2':
                     continue
-                elif Ctype=='microbe':
-                    plot(age,ma.masked_array(location,mask=~(form==self.Ctype_key[Ctype]))+offset,marker='s',ls='',ms=0.5,c=self.plotcolors[Ctype],alpha=0.5,zorder=0)
-                else:
-                    plot(age,ma.masked_array(location,mask=~(form==self.Ctype_key[Ctype]))+offset,marker='.',ls='',ms=0.5,c=self.plotcolors[Ctype])
+                r=Rectangle(xy=(age[bounds[num]],location[bounds[num+1]]+offset),width=age[bounds[num+1]]-age[bounds[num]],height=2.5,
+                    facecolor=self.plotcolors[Ctype],hatch=self.hatching.get(Ctype,None),edgecolor='k')
+                gca().add_patch(r)
+            # for Ctype in self.Ctype_key:
+            #     if Ctype=='CO2':
+            #         continue
+            #     elif Ctype=='microbe':
+            #         plot(age,ma.masked_array(location,mask=~(form==self.Ctype_key[Ctype]))+offset,marker='s',ls='',ms=0.5,c=self.plotcolors[Ctype],alpha=0.5,zorder=0)
+            #     else:
+            #         plot(age,ma.masked_array(location,mask=~(form==self.Ctype_key[Ctype]))+offset,marker='.',ls='',ms=0.5,c=self.plotcolors[Ctype])
 
 
-            transformations=nonzero(diff(form))[0]
             for trans in transformations:
                 if form[trans+1]==self.Ctype_key['CO2']:
                     scatter(age[trans],location[trans],marker='x',s=30.0,facecolor=self.plotcolors[self.Ctype_key_inv[form[trans]]],zorder=100)
                 else:
                     scatter(age[trans],location[trans],marker='o',s=20.0,edgecolor=self.plotcolors[self.Ctype_key_inv[form[trans]]],facecolor='None',zorder=100)
 
+            for mov in movements:
+                annotate('',xytext=(age[mov],location[mov]),xy=(age[mov+1],location[mov+1]),color=self.plotcolors[self.Ctype_key_inv[form[mov]]],
+                            arrowprops={'arrowstyle':'->'})
         
         boundaries=nonzero(diff(self.location_map)!=0)[0]
         poresizes=['Macropore','Micropore','Nanopore']
-        text(age[-1],0+2.5,poresizes[self.location_map[0]],rotation=60,va='bottom',fontsize='small')
+        # text(age[-1],0+2.5,poresizes[self.location_map[0]],rotation=60,va='bottom',fontsize='small')
+        b=concatenate(([0],boundaries,[len(self.location_map)-1]))
+        for num in range(len(b)-1):
+            annotate(poresizes[num][:-4].capitalize(),xytext=(age[-1]*1.03,(b[num]+b[num+1])*0.5),xy=(age[-1]*1.01,(b[num]+b[num+1])*0.5),
+                        arrowprops={'arrowstyle':'-[, widthB=%1.1f, lengthB=0.4'%(abs(b[num]-b[num+1])*0.5e-1)},va='center')
         for num in boundaries:
             plot(age,zeros(len(age))+num+0.5,'k--',lw=2)
-            text(age[-1],num+2.5,poresizes[self.location_map[num+1]],rotation=60,va='bottom',fontsize='small')
-        for num in range(len(self.location_map)):
-            plot(age,zeros(len(age))+num+0.5,'k--',lw=0.2)
+            # text(age[-1],num+2.5,poresizes[self.location_map[num+1]],rotation=60,va='bottom',fontsize='small')
+        # for num in range(len(self.location_map)):
+        #     plot(age,zeros(len(age))+num+0.5,'k--',lw=0.2)
 
         Ctypes=['lignin','insoluble polymer','soluble polymer','monomer','microbe']
         if do_legend:
-            legend([Line2D([0],[0],ls='',marker='.',c=self.plotcolors[Ctype]) for Ctype in Ctypes],Ctypes,loc=(0.0,1.06),ncol=3)
+            legend([Rectangle(xy=(0,0),width=0,height=2.5,
+                facecolor=self.plotcolors[Ctype],hatch=self.hatching.get(Ctype,None),edgecolor='k') for Ctype in Ctypes],
+                [c.capitalize() for c in Ctypes],loc=(0.0,1.08),ncol=3)
 
-        xlabel('Time')
+        xlabel('Time (years)')
         ylabel('Pore location')
         title('History of particle location')
+        ylim(0,len(self.location_map)+1)
+        gca().spines['right'].set_visible(False)
+        xlim(0,age[-1]*1.1)
+
         
         
         
@@ -185,17 +211,27 @@ class lagrangian_soil_sim:
             old_bottom=bottom[-1]
             for poresize in (['macropore','micropore','nanopore']):
                 for Ctype in reversed(['lignin','insoluble polymer','soluble polymer','monomer','microbe','CO2']):
+                    if Ctype is 'CO2':
+                        label='CO$_2$'
+                    else:
+                        label=Ctype.capitalize()
                     top=bottom+((self.particle_form==self.Ctype_key[Ctype])&(location_type==self.pore_key[poresize])).sum(axis=0)/self.particle_form.count(axis=0)
-                    fill_between(age,bottom,top,label=Ctype,color=self.plotcolors[Ctype])
+                    fill_between(age,bottom,top,label=label,facecolor=self.plotcolors[Ctype],hatch=self.hatching.get(Ctype,None),edgecolor='k')
                     bottom=top
-                plot(age,top,'k-',lw=2.0)
-                text(age[-1],old_bottom,poresize[:-4],rotation=60,va='bottom')
+                plot(age,top,'w:',lw=2.0)
+                annotate(poresize[:-4].capitalize(),xytext=(age[-1]*1.03,(old_bottom+bottom[-1])*0.5),xy=(age[-1]*1.01,(old_bottom+bottom[-1])*0.5),
+                            arrowprops={'arrowstyle':'-[, widthB=%1.1f, lengthB=0.5'%(abs(old_bottom-bottom[-1])*10)},va='center')
+                # text(age[-1]*1.01,(old_bottom+bottom[-1])*0.5,poresize[:-4].capitalize(),rotation=0,va='bottom')
                 old_bottom=bottom[-1]
 
 
-            xlabel('Time steps')
+            xlabel('Time (years)')
             ylabel('Relative amount')
             title('Relative amount of each particle type in each pore size')
+            xlim(0,age[-1]*1.1)
+            ylim(0,1)
+            gca().spines['right'].set_visible(False)
+            gca().spines['top'].set_visible(False)
 
             
             
@@ -203,7 +239,7 @@ class lagrangian_soil_sim:
             bottom=zeros(self.particle_form.shape[1])
             for Ctype in ['microbe','lignin','insoluble polymer','soluble polymer','monomer','CO2']:
                 top=bottom+(self.particle_form==self.Ctype_key[Ctype]).sum(axis=0)/self.particle_form.count(axis=0)
-                fill_between(age,bottom,top,label=Ctype,color=self.plotcolors[Ctype])
+                fill_between(age,bottom,top,label=Ctype.capitalize(),color=self.plotcolors[Ctype])
                 bottom=top
 
             if do_legend:
@@ -224,6 +260,7 @@ class lagrangian_soil_sim:
 
 
 total_particles=0
+np.random.seed(1)
 
 # Initialize a simulation
 nparticles=100
@@ -380,13 +417,13 @@ sim_macro.plot_histogram(separate_pores=True,dt=1.0/2000)
 title('High mobility, macropore-dominated')
 xlabel('Time (years)')
 # title('Divided by pore class')
-leg=legend(handles=gca().collections[:6],fontsize='small',loc='upper right')
+leg=legend(handles=gca().collections[:6],fontsize='small',loc=(0.69,0.035),framealpha=1.0)
 leg.set_draggable(True)
 
 tight_layout()
 
 figure('Particle history example');clf()
-sim.plot_particle_loc_history(dt=1.0/2000,do_legend=True)
+sim.plot_particle_loc_history(dt=1.0/2000,do_legend=True,particles=[0,49,18,71,92,62])
 title('History of particle locations')
 # legend(ncol=3)
 tight_layout()
